@@ -14,7 +14,7 @@ import 'package:path/path.dart' as p;
 class Translations {
   static final data = {
     'hu': {
-      'app_title': 'Lockd 2.2.1',
+      'app_title': 'Lockd 2.2.2',
       'unlock_bt': 'FELOLDÁS',
       'invalid_key': 'Érvénytelen kulcs!',
       'error': 'Hiba',
@@ -48,7 +48,7 @@ class Translations {
       'open_type_error': 'Hiba: Az \'OPEN\' típusú zár nem zárható.',
     },
     'en': {
-      'app_title': 'Lockd 2.2.1',
+      'app_title': 'Lockd 2.2.2',
       'unlock_bt': 'UNLOCK',
       'invalid_key': 'Invalid Key!',
       'error': 'Error',
@@ -558,7 +558,8 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
     if (s.contains("...") || s.contains("…")) return false;
     final finalStates = {
       "Nyitva", "Zárva", "NOTFOUND", "OFFLINE", "Ismeretlen",
-      "Open", "Closed", "Unknown", "Opened", "Locked", "Unlocked"
+      "Open", "Closed", "Unknown", "Opened", "Locked", "Unlocked",
+      "LOCK", "UNLOCK",
     };
     return finalStates.contains(s);
   }
@@ -688,7 +689,7 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
-          "Lockd 2.2.1",
+          "Lockd 2.2.2",
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
@@ -847,10 +848,10 @@ class LockCard extends StatelessWidget {
   String _t(String key) => Translations.data[locale]![key] ?? key;
 
   bool get _baseDisabled => lock.state == "NOTFOUND" || lock.pending;
-  bool get _unlockDisabled => _baseDisabled || 
-    (lock.type == "TOGGLE" && (lock.state == "Nyitva" || lock.state == "Open"));
-  bool get _lockDisabled => _baseDisabled || 
-    (lock.type == "TOGGLE" && (lock.state == "Zárva" || lock.state == "Closed"));
+  bool get _unlockDisabled => _baseDisabled ||
+    (lock.type == "TOGGLE" && (lock.state == "Nyitva" || lock.state == "Open" || lock.state == "UNLOCK"));
+  bool get _lockDisabled => _baseDisabled ||
+    (lock.type == "TOGGLE" && (lock.state == "Zárva" || lock.state == "Closed" || lock.state == "LOCK"));
 
   @override
   Widget build(BuildContext context) {
@@ -858,8 +859,8 @@ class LockCard extends StatelessWidget {
     // Map backend state strings to localized labels if not pending
     String shownState = shownStateRaw;
     if (!lock.pending) {
-      if (shownStateRaw == "Nyitva" || shownStateRaw == "Open") shownState = _t('state_open');
-      else if (shownStateRaw == "Zárva" || shownStateRaw == "Closed") shownState = _t('state_closed');
+      if (shownStateRaw == "Nyitva" || shownStateRaw == "Open" || shownStateRaw == "UNLOCK") shownState = _t('state_open');
+      else if (shownStateRaw == "Zárva" || shownStateRaw == "Closed" || shownStateRaw == "LOCK") shownState = _t('state_closed');
       else if (shownStateRaw == "Ismeretlen" || shownStateRaw == "Unknown") shownState = _t('state_unknown');
       else if (shownStateRaw == "NOTFOUND") shownState = _t('state_not_installed');
     }
@@ -1012,9 +1013,11 @@ class LockCard extends StatelessWidget {
     switch (state) {
       case "Nyitva":
       case "Open":
+      case "UNLOCK":
         return Icons.lock_open;
       case "Zárva":
       case "Closed":
+      case "LOCK":
         return Icons.lock;
       case "Zárás...":
       case "Nyitás...":
@@ -1030,9 +1033,11 @@ class LockCard extends StatelessWidget {
     switch (state) {
       case "Nyitva":
       case "Open":
+      case "UNLOCK":
         return Colors.green;
       case "Zárva":
       case "Closed":
+      case "LOCK":
         return Colors.red;
       case "Zárás...":
       case "Nyitás...":
