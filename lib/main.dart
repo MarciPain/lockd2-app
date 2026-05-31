@@ -14,7 +14,7 @@ import 'package:path/path.dart' as p;
 class Translations {
   static final data = {
     'hu': {
-      'app_title': 'Lockd 2.1',
+      'app_title': 'Lockd 2.2.0',
       'unlock_bt': 'FELOLDÁS',
       'invalid_key': 'Érvénytelen kulcs!',
       'error': 'Hiba',
@@ -48,7 +48,7 @@ class Translations {
       'open_type_error': 'Hiba: Az \'OPEN\' típusú zár nem zárható.',
     },
     'en': {
-      'app_title': 'Lockd 2.1',
+      'app_title': 'Lockd 2.2.0',
       'unlock_bt': 'UNLOCK',
       'invalid_key': 'Invalid Key!',
       'error': 'Error',
@@ -567,7 +567,7 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
 
   String _getPendingLabel(String upper) {
     if (upper == "LOCK") return _t('state_locking');
-    if (upper == "UNLOCK") return _t('state_unlocking');
+    if (upper == "OPEN") return _t('state_unlocking');
     return _t('state_refreshing');
   }
 
@@ -653,25 +653,11 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
         return;
       }
 
-      // Successful command! To avoid getting the old cached final state, 
-      // we immediately ask the server to trigger a STATUS request to the hardware,
-      // just like v1 did. This ensures the hardware pushes its "in-progress" state.
-      if (upper != "STATUS") {
-        try {
-          await http.post(
-            uri,
-            headers: _headers(),
-            body: jsonEncode({"cmd": "STATUS"}),
-          ).timeout(const Duration(seconds: 4));
-        } catch (_) {
-          // ignore status request errors
-        }
-
-        for (int i = 0; i < 3; i++) {
-          if (!lock.pending) break; 
-          await Future.delayed(Duration(milliseconds: 800 * (i + 1)));
-          await _refreshLock(lock);
-        }
+      // Parancs elküldve – rövid polling az állapot frissítéséhez
+      for (int i = 0; i < 3; i++) {
+        if (!lock.pending) break;
+        await Future.delayed(Duration(milliseconds: 800 * (i + 1)));
+        await _refreshLock(lock);
       }
     } catch (e) {
       DebugLogger.log("Cmd failure: $e");
@@ -704,7 +690,7 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
-          "Lockd 2.0 (Dynamic)",
+          "Lockd 2.2.0",
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
@@ -795,8 +781,8 @@ class _LocksHomeState extends State<LocksHome> with WidgetsBindingObserver {
                 lock: locks[i],
                 locale: widget.locale,
                 onLock: () => _sendCmd(locks[i], "LOCK"),
-                onUnlock: () => _sendCmd(locks[i], "UNLOCK"),
-                onStatus: () => _sendCmd(locks[i], "STATUS"),
+                onUnlock: () => _sendCmd(locks[i], "OPEN"),
+                onStatus: () => _refreshLock(locks[i]),
               ),
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemCount: locks.length,
@@ -978,7 +964,7 @@ class LockCard extends StatelessWidget {
   }
 
   Widget _buildBatteryIndicator(BuildContext context, String battStr) {
-    final val = int.tryParse(battStr) ?? 0;
+    final val = int.tryParse(battStr.replaceAll('%', '').trim()) ?? 0;
     IconData icon;
     Color color;
 
