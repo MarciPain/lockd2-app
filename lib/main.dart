@@ -12,46 +12,6 @@ import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'package:workmanager/workmanager.dart';
-
-const _kWidgetTask = 'fetchLocksForWidget';
-
-@pragma('vm:entry-point')
-void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    if (task != _kWidgetTask) return true;
-    const storage = FlutterSecureStorage();
-    try {
-      final profilesJson = await storage.read(key: 'profiles');
-      if (profilesJson == null) return true;
-      final activeId = await storage.read(key: 'active_profile');
-      final profiles = (jsonDecode(profilesJson) as List)
-          .map((j) => Profile.fromJson(j as Map<String, dynamic>))
-          .toList();
-      if (profiles.isEmpty) return true;
-      final active = activeId != null
-          ? profiles.firstWhere((p) => p.id == activeId, orElse: () => profiles.first)
-          : profiles.first;
-
-      final res = await http.get(
-        Uri.parse('${active.url}/v1/locks'),
-        headers: {'X-API-Key': active.apiKey, 'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 10));
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final locks = (data['locks'] as List? ?? [])
-            .map((l) => {'name': l['name'], 'state': l['state']})
-            .toList();
-        await HomeWidget.saveWidgetData<String>('locks_json', jsonEncode(locks));
-        await HomeWidget.saveWidgetData<String>(
-            'last_update', DateTime.now().toIso8601String());
-        await HomeWidget.updateWidget(androidName: 'LockWidgetProvider');
-      }
-    } catch (_) {}
-    return true;
-  });
-}
 
 // ─── Translations ──────────────────────────────────────────────────────────────
 
@@ -197,16 +157,6 @@ class Profile {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _MyHttpOverrides();
-  if (Platform.isAndroid) {
-    Workmanager().initialize(callbackDispatcher);
-    Workmanager().registerPeriodicTask(
-      'lockWidgetUpdate',
-      _kWidgetTask,
-      frequency: const Duration(minutes: 15),
-      constraints: Constraints(networkType: NetworkType.connected),
-      existingWorkPolicy: ExistingWorkPolicy.keep,
-    );
-  }
   runApp(const LocksApp());
 }
 
